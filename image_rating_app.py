@@ -1,58 +1,72 @@
 import streamlit as st
 import os
 from PIL import Image
+import json
 
-# Directory where your images are stored
+# Directory and files
 IMAGE_DIR = "images"
-image_files = [f for f in os.listdir(IMAGE_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))]
+LIKES_FILE = "likes.json"
 
-# Initialize session state
+# Get image files
+image_files = sorted([f for f in os.listdir(IMAGE_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))])
+
+# Load likes from JSON or initialize
+def load_likes():
+    if os.path.exists(LIKES_FILE):
+        with open(LIKES_FILE, "r") as f:
+            return json.load(f)
+    else:
+        return {img: 0 for img in image_files}
+
+# Save likes to JSON
+def save_likes(likes):
+    with open(LIKES_FILE, "w") as f:
+        json.dump(likes, f)
+
+# Session state init
 if 'index' not in st.session_state:
     st.session_state.index = 0
-if 'ratings' not in st.session_state:
-    st.session_state.ratings = {}
 if 'likes' not in st.session_state:
-    st.session_state.likes = {img: 0 for img in image_files}
+    st.session_state.likes = load_likes()
 
-# Display current image
-def show_image(index):
-    image_path = os.path.join(IMAGE_DIR, image_files[index])
-    image = Image.open(image_path)
-    
-    st.image(image, caption=image_files[index], use_container_width=True)
-    
-    # Show like count
-    likes = st.session_state.likes.get(image_files[index], 0)
-    st.markdown(f"<div style='text-align: center; font-size: 18px;'>👍 <strong>Likes: {likes}</strong></div>", unsafe_allow_html=True)
-
-# Main UI
+# UI Title
+st.title("📷 Image Rating App")
 
 if image_files:
-    current_img = image_files[st.session_state.index]
-    show_image(st.session_state.index)
+    current_index = st.session_state.index
+    current_img = image_files[current_index]
 
+    # Show image full width
+    image_path = os.path.join(IMAGE_DIR, current_img)
+    image = Image.open(image_path)
+    st.image(image, caption=current_img, use_container_width=True)
+
+    # Show like count
+    st.markdown(f"<div style='text-align: center; font-size: 18px;'>👍 <strong>Likes: {st.session_state.likes[current_img]}</strong></div>", unsafe_allow_html=True)
+
+    # Buttons
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col1:
         if st.button("⬅️ Previous"):
-            if st.session_state.index > 0:
+            if current_index > 0:
                 st.session_state.index -= 1
 
     with col2:
-        if st.button("👍 Like"):
+        if st.button("👍 Thumbs Up"):
             st.session_state.likes[current_img] += 1
-            st.session_state.ratings[current_img] = "Like"
+            save_likes(st.session_state.likes)
             st.success("You liked this image!")
 
     with col3:
         if st.button("➡️ Next"):
-            if st.session_state.index < len(image_files) - 1:
+            if current_index < len(image_files) - 1:
                 st.session_state.index += 1
 
-    # Optional: show ratings summary
-    with st.expander("📊 Your Ratings Summary"):
-        for img, rating in st.session_state.ratings.items():
-            st.write(f"- {img}: {rating} ({st.session_state.likes[img]} likes)")
+    # Optional: Summary
+    with st.expander("📊 Likes Summary"):
+        for img in image_files:
+            st.write(f"- {img}: {st.session_state.likes[img]} 👍")
 
 else:
     st.error("No images found in the 'images/' folder.")
